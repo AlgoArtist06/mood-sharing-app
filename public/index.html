@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mood Sharing App</title>
+    <script src="/socket.io/socket.io.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .container {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 2rem;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            max-width: 400px;
+            width: 90%;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .app-title {
+            text-align: center;
+            color: #333;
+            margin-bottom: 2rem;
+            font-size: 1.8rem;
+            font-weight: 600;
+        }
+
+        .mode-selector {
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .mode-btn {
+            padding: 0.8rem 1.5rem;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            font-size: 0.9rem;
+        }
+
+        .mode-btn.active {
+            background: #667eea;
+            color: white;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .mode-btn:not(.active) {
+            background: #f0f0f0;
+            color: #666;
+        }
+
+        .mode-btn:hover {
+            transform: translateY(-2px);
+        }
+
+        .section {
+            display: none;
+        }
+
+        .section.active {
+            display: block;
+        }
+
+        .mood-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .mood-btn {
+            background: white;
+            border: 2px solid #e0e0e0;
+            border-radius: 15px;
+            padding: 1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-align: center;
+            font-size: 0.9rem;
+        }
+
+        .mood-btn:hover {
+            border-color: #667eea;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        .mood-btn.selected {
+            border-color: #667eea;
+            background: #667eea;
+            color: white;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .mood-emoji {
+            font-size: 2rem;
+            display: block;
+            margin-bottom: 0.5rem;
+        }
+
+        .mood-label {
+            font-weight: 600;
+            font-size: 0.8rem;
+        }
+
+        .submit-btn {
+            width: 100%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 1rem;
+            border-radius: 25px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-bottom: 1rem;
+            position: relative;
+        }
+
+        .submit-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .submit-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .submit-btn.loading {
+            color: transparent;
+        }
+
+        .submit-btn.loading::after {
+            content: "";
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            top: 50%;
+            left: 50%;
+            margin-left: -10px;
+            margin-top: -10px;
+            border: 2px solid #ffffff;
+            border-radius: 50%;
+            border-top-color: transparent;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .current-mood {
+            text-align: center;
+            padding: 2rem;
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            border-radius: 15px;
+            color: white;
+            margin-bottom: 1rem;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .current-mood::before {
+            content: "";
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: linear-gradient(45deg, transparent, rgba(255,255,255,0.1), transparent);
+            animation: shimmer 3s infinite;
+        }
+
+        @keyframes shimmer {
+            0% { transform: translateX(-100%) translateY(-100%) rotate(45deg); }
+            100% { transform: translateX(100%) translateY(100%) rotate(45deg); }
+        }
+
+        .current-mood-emoji {
+            font-size: 4rem;
+            display: block;
+            margin-bottom: 1rem;
+            position: relative;
+            z-index: 1;
+        }
+
+        .current-mood-label {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            position: relative;
+            z-index: 1;
+        }
+
+        .mood-time {
+            font-size: 0.9rem;
+            opacity: 0.9;
+            position: relative;
+            z-index: 1;
+        }
+
+        .no-mood {
+            text-align: center;
+            color: #666;
+            font-style: italic;
+            padding: 2rem;
+        }
+
+        .status-message {
+            text-align: center;
+            padding: 1rem;
+            border-radius: 10px;
+            margin-bottom: 1rem;
+            font-weight: 600;
+        }
+
+        .success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .refresh-btn {
+            background: #28a745;
+            color: white;
+            border: none;
+            padding: 0.8rem 1.5rem;
+            border-radius: 20px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            display: block;
+            margin: 0 auto 1rem auto;
+        }
+
+        .refresh-btn:hover {
+            background: #218838;
+            transform: translateY(-2px);
+        }
+
+        .connection-status {
+            text-align: center;
+            padding: 0.5rem;
+            font-size: 0.8rem;
+            margin-bottom: 1rem;
+        }
+
+        .connected {
+            color: #28a745;
+        }
+
+        .disconnected {
+            color: #dc3545;
+        }
+
+        .history-btn {
+            background: #6c757d;
+            color: white;
+            border: none;
+            padding: 0.8rem 1.5rem;
+            border-radius: 20px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            display: block;
+            margin: 0 auto;
+        }
+
+        .history-btn:hover {
+            background: #5a6268;
+            transform: translateY(-2px);
+        }
+
+        .mood-history {
+            max-height: 300px;
+            overflow-y: auto;
+            margin-top: 1rem;
+        }
+
+        .history-item {
+            background: white;
+            padding: 1rem;
+            margin-bottom: 0.5rem;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .history-emoji {
+            font-size: 1.5rem;
+        }
+
+        .history-details {
+            flex: 1;
+        }
+
+        .history-mood {
+            font-weight: 600;
+            color: #333;
+        }
+
+        .history-time {
+            font-size: 0.8rem;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="app-title">💕 Mood Sharing</h1>
+        
+        <div id="connection-status" class="connection-status">
+            <span class="disconnected">⚪ Connecting...</span>
+        </div>
+        
+        <div class="mode-selector">
+            <button class="mode-btn active" onclick="switchMode('set')">Set Mood</button>
+            <button class="mode-btn" onclick="switchMode('view')">View Mood</button>
+        </div>
+
+        <!-- Set Mood Section -->
+        <div id="set-section" class="section active">
+            <div class="mood-grid">
+                <div class="mood-btn" onclick="selectMood('happy', '😊')">
+                    <span class="mood-emoji">😊</span>
+                    <span class="mood-label">Happy</span>
+                </div>
+                <div class="mood-btn" onclick="selectMood('excited', '🤩')">
+                    <span class="mood-emoji">🤩</span>
+                    <span class="mood-label">Excited</span>
+                </div>
+                <div class="mood-btn" onclick="selectMood('loved', '🥰')">
+                    <span class="mood-emoji">🥰</span>
+                    <span class="mood-label">Loved</span>
+                </div>
+                <div class="mood-btn" onclick="selectMood('calm', '😌')">
+                    <span class="mood-emoji">😌</span>
+                    <span class="mood-label">Calm</span>
+                </div>
+                <div class="mood-btn" onclick="selectMood('sad', '😢')">
+                    <span class="mood-emoji">😢</span>
+                    <span class="mood-label">Sad</span>
+                </div>
+                <div class="mood-btn" onclick="selectMood('tired', '😴')">
+                    <span class="mood-emoji">😴</span>
+                    <span class="mood-label">Tired</span>
+                </div>
+                <div class="mood-btn" onclick="selectMood('stressed', '😰')">
+                    <span class="mood-emoji">😰</span>
+                    <span class="mood-label">Stressed</span>
+                </div>
+                <div class="mood-btn" onclick="selectMood('angry', '😠')">
+                    <span class="mood-emoji">😠</span>
+                    <span class="mood-label">Angry</span>
+                </div>
+                <div class="mood-btn" onclick="selectMood('silly', '🤪')">
+                    <span class="mood-emoji">🤪</span>
+                    <span class="mood-label">Silly</span>
+                </div>
+            </div>
+            
+            <button class="submit-btn" onclick="submitMood()" disabled>
+                Share Your Mood
+            </button>
+            
+            <div id="status-message"></div>
+        </div>
+
+        <!-- View Mood Section -->
+        <div id="view-section" class="section">
+            <div id="mood-display">
+                <div class="no-mood">Loading current mood...</div>
+            </div>
+            
+            <button class="refresh-btn" onclick="loadCurrentMood()">
+                🔄 Refresh
+            </button>
+            
+            <button class="history-btn" onclick="toggleHistory()">
+                📜 View History
+            </button>
+            
+            <div id="mood-history" class="mood-history" style="display: none;"></div>
+        </div>
+    </div>
+
+    <script>
+        // Initialize Socket.IO connection
+        const socket = io();
+        
+        let selectedMood = null;
+        let selectedEmoji = null;
+        let showingHistory = false;
+
+        // Socket connection events
+        socket.on('connect', () => {
+            updateConnectionStatus(true);
+        });
+
+        socket.on('disconnect', () => {
+            updateConnectionStatus(false);
+        });
+
+        // Listen for real-time mood updates
+        socket.on('mood-updated', (moodData) => {
+            if (document.getElementById('view-section').classList.contains('active')) {
+                displayMood(moodData);
+            }
+            showStatusMessage('Mood updated in real-time! 💕', 'success');
+        });
+
+        function updateConnectionStatus(connected) {
+            const statusEl = document.getElementById('connection-status');
+            if (connected) {
+                statusEl.innerHTML = '<span class="connected">🟢 Connected</span>';
+            } else {
+                statusEl.innerHTML = '<span class="disconnected">🔴 Disconnected</span>';
+            }
+        }
+
+        function switchMode(mode) {
+            // Update button states
+            document.querySelectorAll('.mode-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+            
+            // Show/hide sections
+            document.querySelectorAll('.section').forEach(section => section.classList.remove('active'));
+            document.getElementById(mode + '-section').classList.add('active');
+            
+            // Load current mood when switching to view mode
+            if (mode === 'view') {
+                loadCurrentMood();
+            }
+        }
+
+        function selectMood(mood, emoji) {
+            // Remove previous selection
+            document.querySelectorAll('.mood-btn').forEach(btn => btn.classList.remove('selected'));
+            
+            // Add selection to clicked button
+            event.target.classList.add('selected');
+            
+            selectedMood = mood;
+            selectedEmoji = emoji;
+            
+            // Enable submit button
+            document.querySelector('.submit-btn').disabled = false;
+        }
+
+        async function submitMood() {
+            if (!selectedMood) return;
+            
+            const submitBtn = document.querySelector('.submit-btn');
+            submitBtn.classList.add('loading');
+            submitBtn.disabled = true;
+            
+            try {
+                const response = await fetch('/api/mood/set', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        mood: selectedMood,
+                        emoji: selectedEmoji
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showStatusMessage('Mood shared successfully! 💕', 'success');
+                    
+                    // Reset selection
+                    document.querySelectorAll('.mood-btn').forEach(btn => btn.classList.remove('selected'));
+                    selectedMood = null;
+                    selectedEmoji = null;
+                } else {
+                    showStatusMessage('Failed to share mood. Please try again.', 'error');
+                    submitBtn.disabled = false;
+                }
+            } catch (error) {
+                console.error('Error submitting mood:', error);
+                showStatusMessage('Connection error. Please try again.', 'error');
+                submitBtn.disabled = false;
+            } finally {
+                submitBtn.classList.remove('loading');
+                
+                // Auto-hide message after 3 seconds
+                setTimeout(() => {
+                    document.getElementById('status-message').innerHTML = '';
+                }, 3000);
+            }
+        }
+
+        async function loadCurrentMood() {
+            try {
+                const response = await fetch('/api/mood/current');
+                const data = await response.json();
+                
+                if (data.success && data.mood) {
+                    displayMood(data.mood);
+                } else {
+                    document.getElementById('mood-display').innerHTML = 
+                        '<div class="no-mood">No mood has been shared yet</div>';
+                }
+            } catch (error) {
+                console.error('Error loading mood:', error);
+                document.getElementById('mood-display').innerHTML = 
+                    '<div class="no-mood">Failed to load mood</div>';
+            }
+        }
+
+        function displayMood(moodData) {
+            const moodDisplay = document.getElementById('mood-display');
+            moodDisplay.innerHTML = `
+                <div class="current-mood">
+                    <span class="current-mood-emoji">${moodData.emoji}</span>
+                    <div class="current-mood-label">${moodData.mood.charAt(0).toUpperCase() + moodData.mood.slice(1)}</div>
+                    <div class="mood-time">${moodData.timeAgo}</div>
+                </div>
+            `;
+        }
+
+        async function toggleHistory() {
+            const historyDiv = document.getElementById('mood-history');
+            const historyBtn = document.querySelector('.history-btn');
+            
+            if (showingHistory) {
+                historyDiv.style.display = 'none';
+                historyBtn.textContent = '📜 View History';
+                showingHistory = false;
+            } else {
+                try {
+                    const response = await fetch('/api/mood/history?limit=10');
+                    const data = await response.json();
+                    
+                    if (data.success && data.history.length > 0) {
+                        let historyHTML = '';
+                        data.history.forEach(mood => {
+                            historyHTML += `
+                                <div class="history-item">
+                                    <span class="history-emoji">${mood.emoji}</span>
+                                    <div class="history-details">
+                                        <div class="history-mood">${mood.mood.charAt(0).toUpperCase() + mood.mood.slice(1)}</div>
+                                        <div class="history-time">${mood.timeAgo}</div>
+                                    </div>
+                                </div>
+                            `;
+                        });
+                        historyDiv.innerHTML = historyHTML;
+                    } else {
+                        historyDiv.innerHTML = '<div class="no-mood">No mood history found</div>';
+                    }
+                    
+                    historyDiv.style.display = 'block';
+                    historyBtn.textContent = '❌ Hide History';
+                    showingHistory = true;
+                } catch (error) {
+                    console.error('Error loading history:', error);
+                    historyDiv.innerHTML = '<div class="no-mood">Failed to load history</div>';
+                    historyDiv.style.display = 'block';
+                }
+            }
+        }
+
+        function showStatusMessage(message, type) {
+            const statusDiv = document.getElementById('status-message');
+            statusDiv.innerHTML = `<div class="status-message ${type}">${message}</div>`;
+        }
+
+        // Initialize the app
+        document.addEventListener('DOMContentLoaded', function() {
+            loadCurrentMood();
+        });
+    </script>
+</body>
+</html>

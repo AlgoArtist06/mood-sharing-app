@@ -4,6 +4,7 @@
   "description": "A real-time mood tracking app with push notifications",
   "main": "server.js",
   "scripts": {
+    "build": "react-scripts build"
     "start": "node server.js",
     "dev": "nodemon server.js",
     "generate-vapid-keys": "web-push generate-vapid-keys"

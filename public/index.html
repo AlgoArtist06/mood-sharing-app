@@ -4,7 +4,16 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Mood Sharing App</title>
-    <script src="/socket.io/socket.io.js"></script>
+    <link rel="manifest" href="/manifest.json" />
+  <link rel="icon" sizes="192x192" href="/icon-192x192.png" />
+  <meta name="theme-color" content="#4f46e5" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+
+  <!-- External Scripts -->
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/push-notifications.js"></script>
+
     <style>
         * {
             margin: 0;
@@ -26,10 +35,11 @@
             border-radius: 20px;
             padding: 2rem;
             box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-            max-width: 400px;
+            max-width: 450px;
             width: 90%;
             backdrop-filter: blur(10px);
             border: 1px solid rgba(255, 255, 255, 0.2);
+            position: relative;
         }
 
         .app-title {
@@ -40,21 +50,51 @@
             font-weight: 600;
         }
 
+        .notifications-badge {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            background: #ff4757;
+            color: white;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.8rem;
+            font-weight: bold;
+            cursor: pointer;
+            animation: pulse 2s infinite;
+            display: none;
+        }
+
+        .notifications-badge.show {
+            display: flex;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+
         .mode-selector {
             display: flex;
             justify-content: center;
-            gap: 1rem;
+            gap: 0.5rem;
             margin-bottom: 2rem;
+            flex-wrap: wrap;
         }
 
         .mode-btn {
-            padding: 0.8rem 1.5rem;
+            padding: 0.8rem 1.2rem;
             border: none;
             border-radius: 25px;
             cursor: pointer;
             font-weight: 600;
             transition: all 0.3s ease;
-            font-size: 0.9rem;
+            font-size: 0.85rem;
         }
 
         .mode-btn.active {
@@ -335,11 +375,224 @@
             font-size: 0.8rem;
             color: #666;
         }
+
+        /* Notification Settings */
+        .notification-settings {
+            background: #f8f9fa;
+            padding: 1.5rem;
+            border-radius: 15px;
+            margin-bottom: 1rem;
+        }
+
+        .setting-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .setting-item:last-child {
+            margin-bottom: 0;
+            padding-bottom: 0;
+            border-bottom: none;
+        }
+
+        .setting-label {
+            font-weight: 600;
+            color: #333;
+            font-size: 0.9rem;
+        }
+
+        .setting-description {
+            font-size: 0.8rem;
+            color: #666;
+            margin-top: 0.2rem;
+        }
+
+        .toggle-switch {
+            position: relative;
+            width: 50px;
+            height: 24px;
+            background: #ccc;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        .toggle-switch.active {
+            background: #667eea;
+        }
+
+        .toggle-switch::after {
+            content: '';
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: white;
+            top: 2px;
+            left: 2px;
+            transition: transform 0.3s;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .toggle-switch.active::after {
+            transform: translateX(26px);
+        }
+
+        /* Notification Toast */
+        .notification-toast {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 1rem 1.5rem;
+            border-radius: 15px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+            transform: translateX(400px);
+            transition: transform 0.3s ease;
+            z-index: 1000;
+            max-width: 300px;
+            backdrop-filter: blur(10px);
+        }
+
+        .notification-toast.show {
+            transform: translateX(0);
+        }
+
+        .notification-toast-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.5rem;
+        }
+
+        .notification-toast-title {
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+
+        .notification-toast-close {
+            background: none;
+            border: none;
+            color: white;
+            cursor: pointer;
+            font-size: 1.2rem;
+            opacity: 0.8;
+        }
+
+        .notification-toast-close:hover {
+            opacity: 1;
+        }
+
+        .notification-toast-body {
+            font-size: 0.85rem;
+            line-height: 1.4;
+        }
+
+        /* Notifications Panel */
+        .notifications-panel {
+            background: white;
+            border-radius: 15px;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .notification-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 1rem;
+            padding: 1rem;
+            margin-bottom: 0.5rem;
+            border-radius: 10px;
+            background: #f8f9fa;
+            border-left: 4px solid #667eea;
+            transition: all 0.3s ease;
+        }
+
+        .notification-item.unread {
+            background: #e3f2fd;
+            border-left-color: #2196f3;
+        }
+
+        .notification-item:hover {
+            background: #e9ecef;
+            transform: translateY(-1px);
+        }
+
+        .notification-icon {
+            font-size: 1.5rem;
+            margin-top: 0.2rem;
+        }
+
+        .notification-content {
+            flex: 1;
+        }
+
+        .notification-title {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 0.3rem;
+            font-size: 0.9rem;
+        }
+
+        .notification-message {
+            color: #666;
+            font-size: 0.85rem;
+            margin-bottom: 0.3rem;
+        }
+
+        .notification-time {
+            color: #999;
+            font-size: 0.75rem;
+        }
+
+        .notifications-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        .notifications-title {
+            font-weight: 600;
+            color: #333;
+            font-size: 1.1rem;
+        }
+
+        .mark-all-read {
+            background: none;
+            border: none;
+            color: #667eea;
+            cursor: pointer;
+            font-size: 0.8rem;
+            text-decoration: underline;
+        }
+
+        .mark-all-read:hover {
+            color: #5a67d8;
+        }
+
+        .empty-notifications {
+            text-align: center;
+            color: #666;
+            font-style: italic;
+            padding: 2rem;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <h1 class="app-title">💕 Mood Sharing</h1>
+        
+        <div class="notifications-badge" id="notifications-badge" onclick="switchMode('notifications')">
+            <span id="notification-count">0</span>
+        </div>
         
         <div id="connection-status" class="connection-status">
             <span class="disconnected">⚪ Connecting...</span>
@@ -348,6 +601,8 @@
         <div class="mode-selector">
             <button class="mode-btn active" onclick="switchMode('set')">Set Mood</button>
             <button class="mode-btn" onclick="switchMode('view')">View Mood</button>
+            <button class="mode-btn" onclick="switchMode('notifications')">🔔 Notifications</button>
+            <button class="mode-btn" onclick="switchMode('settings')">⚙️ Settings</button>
         </div>
 
         <!-- Set Mood Section -->
@@ -414,6 +669,75 @@
             
             <div id="mood-history" class="mood-history" style="display: none;"></div>
         </div>
+
+        <!-- Notifications Section -->
+        <div id="notifications-section" class="section">
+            <div class="notifications-panel">
+                <div class="notifications-header">
+                    <div class="notifications-title">🔔 Notifications</div>
+                    <button class="mark-all-read" onclick="markAllAsRead()">Mark all as read</button>
+                </div>
+                <div id="notifications-list">
+                    <div class="empty-notifications">No notifications yet</div>
+                </div>
+            </div>
+            
+            <button class="refresh-btn" onclick="loadNotifications()">
+                🔄 Refresh Notifications
+            </button>
+        </div>
+
+        <!-- Settings Section -->
+        <div id="settings-section" class="section">
+            <div class="notification-settings">
+                <div class="setting-item">
+                    <div>
+                        <div class="setting-label">Mood Updates</div>
+                        <div class="setting-description">Get notified when mood changes</div>
+                    </div>
+                    <div class="toggle-switch active" onclick="toggleSetting('mood-updates', this)"></div>
+                </div>
+                
+                <div class="setting-item">
+                    <div>
+                        <div class="setting-label">Daily Reminders</div>
+                        <div class="setting-description">Remind to check mood daily</div>
+                    </div>
+                    <div class="toggle-switch" onclick="toggleSetting('daily-reminders', this)"></div>
+                </div>
+                
+                <div class="setting-item">
+                    <div>
+                        <div class="setting-label">Browser Notifications</div>
+                        <div class="setting-description">Show desktop notifications</div>
+                    </div>
+                    <div class="toggle-switch" onclick="toggleSetting('browser-notifications', this)"></div>
+                </div>
+                
+                <div class="setting-item">
+                    <div>
+                        <div class="setting-label">Sound Alerts</div>
+                        <div class="setting-description">Play sound for notifications</div>
+                    </div>
+                    <div class="toggle-switch active" onclick="toggleSetting('sound-alerts', this)"></div>
+                </div>
+            </div>
+            
+            <button class="submit-btn" onclick="saveSettings()">
+                💾 Save Settings
+            </button>
+        </div>
+    </div>
+
+    <!-- Notification Toast -->
+    <div id="notification-toast" class="notification-toast">
+        <div class="notification-toast-header">
+            <div class="notification-toast-title">New Notification</div>
+            <button class="notification-toast-close" onclick="hideNotificationToast()">×</button>
+        </div>
+        <div class="notification-toast-body" id="toast-message">
+            Your mood has been updated!
+        </div>
     </div>
 
     <script>
@@ -423,6 +747,13 @@
         let selectedMood = null;
         let selectedEmoji = null;
         let showingHistory = false;
+        let notifications = [];
+        let notificationSettings = {
+            'mood-updates': true,
+            'daily-reminders': false,
+            'browser-notifications': false,
+            'sound-alerts': true
+        };
 
         // Socket connection events
         socket.on('connect', () => {
@@ -439,6 +770,17 @@
                 displayMood(moodData);
             }
             showStatusMessage('Mood updated in real-time! 💕', 'success');
+            
+            if (notificationSettings['mood-updates']) {
+                showNotificationToast('Mood Updated', `Mood changed to ${moodData.mood} ${moodData.emoji}`);
+                addNotification('mood-update', `Mood changed to ${moodData.mood}`, moodData.emoji);
+            }
+        });
+
+        // Listen for new notifications
+        socket.on('new-notification', (notificationData) => {
+            addNotification(notificationData.type, notificationData.message, notificationData.icon);
+            showNotificationToast('New Notification', notificationData.message);
         });
 
         function updateConnectionStatus(connected) {
@@ -459,9 +801,12 @@
             document.querySelectorAll('.section').forEach(section => section.classList.remove('active'));
             document.getElementById(mode + '-section').classList.add('active');
             
-            // Load current mood when switching to view mode
+            // Load appropriate content
             if (mode === 'view') {
                 loadCurrentMood();
+            } else if (mode === 'notifications') {
+                loadNotifications();
+                markAllAsRead();
             }
         }
 
@@ -601,10 +946,264 @@
             statusDiv.innerHTML = `<div class="status-message ${type}">${message}</div>`;
         }
 
+        // Notification Functions
+        function showNotificationToast(title, message) {
+            const toast = document.getElementById('notification-toast');
+            const titleEl = document.querySelector('.notification-toast-title');
+            const messageEl = document.getElementById('toast-message');
+            
+            titleEl.textContent = title;
+            messageEl.textContent = message;
+            
+            toast.classList.add('show');
+            
+            // Play sound if enabled
+            if (notificationSettings['sound-alerts']) {
+                playNotificationSound();
+            }
+            
+            // Show browser notification if enabled and permission granted
+            if (notificationSettings['browser-notifications'] && 'Notification' in window && Notification.permission === 'granted') {
+                new Notification(title, {
+                    body: message,
+                    icon: '/favicon.ico'
+                });
+            }
+            
+            // Auto-hide after 5 seconds
+            setTimeout(() => {
+                hideNotificationToast();
+            }, 5000);
+        }
+
+        function hideNotificationToast() {
+            const toast = document.getElementById('notification-toast');
+            toast.classList.remove('show');
+        }
+
+        function playNotificationSound() {
+            // Create a simple notification sound using Web Audio API
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            
+            oscillator.frequency.value = 800;
+            oscillator.type = 'sine';
+            gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
+            
+            oscillator.start(audioContext.currentTime);
+            oscillator.stop(audioContext.currentTime + 0.5);
+        }
+
+        function addNotification(type, message, icon) {
+            const notification = {
+                id: Date.now(),
+                type: type,
+                message: message,
+                icon: icon,
+                timestamp: new Date(),
+                read: false
+            };
+            
+            notifications.unshift(notification);
+            updateNotificationBadge();
+            
+            // Keep only last 50 notifications
+            if (notifications.length > 50) {
+                notifications = notifications.slice(0, 50);
+            }
+        }
+
+        function updateNotificationBadge() {
+            const unreadCount = notifications.filter(n => !n.read).length;
+            const badge = document.getElementById('notifications-badge');
+            const countEl = document.getElementById('notification-count');
+            
+            if (unreadCount > 0) {
+                badge.classList.add('show');
+                countEl.textContent = unreadCount > 99 ? '99+' : unreadCount;
+            } else {
+                badge.classList.remove('show');
+            }
+        }
+
+        async function loadNotifications() {
+            try {
+                const response = await fetch('/api/notifications');
+                const data = await response.json();
+                
+                if (data.success) {
+                    notifications = data.notifications || [];
+                    displayNotifications();
+                    updateNotificationBadge();
+                }
+            } catch (error) {
+                console.error('Error loading notifications:', error);
+                // Use local notifications if API fails
+                displayNotifications();
+            }
+        }
+
+        function displayNotifications() {
+            const listEl = document.getElementById('notifications-list');
+            
+            if (notifications.length === 0) {
+                listEl.innerHTML = '<div class="empty-notifications">No notifications yet</div>';
+                return;
+            }
+            
+            let html = '';
+            notifications.forEach(notification => {
+                const timeAgo = getTimeAgo(notification.timestamp);
+                html += `
+                    <div class="notification-item ${!notification.read ? 'unread' : ''}" onclick="markAsRead('${notification.id}')">
+                        <div class="notification-icon">${notification.icon}</div>
+                        <div class="notification-content">
+                            <div class="notification-title">${getNotificationTitle(notification.type)}</div>
+                            <div class="notification-message">${notification.message}</div>
+                            <div class="notification-time">${timeAgo}</div>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            listEl.innerHTML = html;
+        }
+
+        function getNotificationTitle(type) {
+            const titles = {
+                'mood-update': '💕 Mood Update',
+                'daily-reminder': '⏰ Daily Reminder',
+                'system': '🔔 System Notification',
+                'connection': '🌐 Connection Status'
+            };
+            return titles[type] || '🔔 Notification';
+        }
+
+        function getTimeAgo(timestamp) {
+            const now = new Date();
+            const time = new Date(timestamp);
+            const diffInSeconds = Math.floor((now - time) / 1000);
+            
+            if (diffInSeconds < 60) return 'Just now';
+            if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}m ago`;
+            if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}h ago`;
+            return `${Math.floor(diffInSeconds / 86400)}d ago`;
+        }
+
+        function markAsRead(notificationId) {
+            const notification = notifications.find(n => n.id == notificationId);
+            if (notification) {
+                notification.read = true;
+                updateNotificationBadge();
+                displayNotifications();
+            }
+        }
+
+        function markAllAsRead() {
+            notifications.forEach(n => n.read = true);
+            updateNotificationBadge();
+            displayNotifications();
+        }
+
+        // Settings Functions
+        function toggleSetting(settingKey, toggleEl) {
+            notificationSettings[settingKey] = !notificationSettings[settingKey];
+            toggleEl.classList.toggle('active', notificationSettings[settingKey]);
+            
+            // Request browser notification permission if enabled
+            if (settingKey === 'browser-notifications' && notificationSettings[settingKey]) {
+                requestNotificationPermission();
+            }
+        }
+
+        async function requestNotificationPermission() {
+            if ('Notification' in window) {
+                const permission = await Notification.requestPermission();
+                if (permission !== 'granted') {
+                    // Disable the setting if permission denied
+                    notificationSettings['browser-notifications'] = false;
+                    const toggle = document.querySelector('[onclick*="browser-notifications"]');
+                    toggle.classList.remove('active');
+                    showStatusMessage('Browser notifications permission denied', 'error');
+                }
+            }
+        }
+
+        async function saveSettings() {
+            try {
+                const response = await fetch('/api/settings/notifications', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(notificationSettings)
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showStatusMessage('Settings saved successfully! ⚙️', 'success');
+                } else {
+                    showStatusMessage('Failed to save settings. Please try again.', 'error');
+                }
+            } catch (error) {
+                console.error('Error saving settings:', error);
+                showStatusMessage('Connection error. Settings saved locally.', 'error');
+            }
+            
+            // Auto-hide message after 3 seconds
+            setTimeout(() => {
+                document.getElementById('status-message').innerHTML = '';
+            }, 3000);
+        }
+
         // Initialize the app
         document.addEventListener('DOMContentLoaded', function() {
             loadCurrentMood();
+            loadNotifications();
+            
+            // Add some sample notifications for demo
+            setTimeout(() => {
+                addNotification('system', 'Welcome to Mood Sharing! 🎉', '👋');
+                addNotification('daily-reminder', 'How are you feeling today?', '😊');
+            }, 2000);
+            
+            // Check for browser notification support
+            if ('Notification' in window && Notification.permission === 'default') {
+                // Don't auto-request, let user enable it in settings
+            }
         });
+
+        // Simulate periodic notifications for demo
+        setInterval(() => {
+            if (Math.random() < 0.1) { // 10% chance every 30 seconds
+                const messages = [
+                    'Remember to check in with your mood!',
+                    'How has your day been so far?',
+                    'Take a moment to reflect on your feelings',
+                    'Your wellbeing matters! 💕'
+                ];
+                const randomMessage = messages[Math.floor(Math.random() * messages.length)];
+                addNotification('daily-reminder', randomMessage, '💭');
+                
+                if (notificationSettings['daily-reminders']) {
+                    showNotificationToast('Daily Check-in', randomMessage);
+                }
+            }
+        }, 30000);
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker
+          .register('/sw.js')
+          .then(reg => console.log('✅ Service Worker registered:', reg.scope))
+          .catch(err => console.error('❌ Service Worker registration failed:', err));
+      });
+    }
     </script>
 </body>
 </html>

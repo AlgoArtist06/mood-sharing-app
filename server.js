@@ -4,6 +4,7 @@ const cors = require('cors');
 const http = require('http');
 const socketIo = require('socket.io');
 const path = require('path');
+const webpush = require('web-push');
 require('dotenv').config();
 
 const app = express();
@@ -14,6 +15,13 @@ const io = socketIo(server, {
     methods: ["GET", "POST"]
   }
 });
+
+// Configure web-push
+webpush.setVapidDetails(
+  'mailto:' + (process.env.VAPID_EMAIL || 'your-email@example.com'),
+  process.env.VAPID_PUBLIC_KEY || 'your-public-key',
+  process.env.VAPID_PRIVATE_KEY || 'your-private-key'
+);
 
 // Middleware
 app.use(cors());
@@ -48,9 +56,141 @@ const moodSchema = new mongoose.Schema({
   }
 });
 
+// Push Subscription Schema
+const subscriptionSchema = new mongoose.Schema({
+  endpoint: {
+    type: String,
+    required: true,
+    unique: true
+  },
+  keys: {
+    p256dh: {
+      type: String,
+      required: true
+    },
+    auth: {
+      type: String,
+      required: true
+    }
+  },
+  userId: {
+    type: String,
+    default: 'default'
+  },
+  createdAt: {
+    type: Date,
+    default: Date.now
+  }
+});
+
 const Mood = mongoose.model('Mood', moodSchema);
+const PushSubscription = mongoose.model('PushSubscription', subscriptionSchema);
 
 // API Routes
+
+// Get VAPID public key
+app.get('/api/vapid-public-key', (req, res) => {
+  res.json({
+    publicKey: process.env.VAPID_PUBLIC_KEY || 'your-public-key'
+  });
+});
+
+// Subscribe to push notifications
+app.post('/api/subscribe', async (req, res) => {
+  try {
+    const subscription = req.body;
+    
+    if (!subscription || !subscription.endpoint) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Invalid subscription object' 
+      });
+    }
+
+    // Save or update subscription
+    await PushSubscription.findOneAndUpdate(
+      { endpoint: subscription.endpoint },
+      {
+        endpoint: subscription.endpoint,
+        keys: subscription.keys,
+        userId: req.body.userId || 'default'
+      },
+      { upsert: true, new: true }
+    );
+
+    console.log('New push subscription saved');
+    res.json({ success: true, message: 'Subscription saved successfully' });
+  } catch (error) {
+    console.error('Error saving subscription:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Failed to save subscription' 
+    });
+  }
+});
+
+// Unsubscribe from push notifications
+app.post('/api/unsubscribe', async (req, res) => {
+  try {
+    const { endpoint } = req.body;
+    
+    if (!endpoint) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Endpoint is required' 
+      });
+    }
+
+    await PushSubscription.deleteOne({ endpoint });
+    res.json({ success: true, message: 'Unsubscribed successfully' });
+  } catch (error) {
+    console.error('Error unsubscribing:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Failed to unsubscribe' 
+    });
+  }
+});
+
+// Send test notification
+app.post('/api/send-test-notification', async (req, res) => {
+  try {
+    const subscriptions = await PushSubscription.find();
+    
+    if (subscriptions.length === 0) {
+      return res.json({ 
+        success: true, 
+        message: 'No subscribers to send notifications to' 
+      });
+    }
+
+    const payload = JSON.stringify({
+      title: 'Test Notification',
+      body: 'This is a test push notification from your mood app!',
+      icon: '/icon-192x192.png',
+      badge: '/badge-72x72.png',
+      tag: 'test',
+      data: {
+        url: '/',
+        timestamp: Date.now()
+      }
+    });
+
+    const results = await sendNotificationToAll(subscriptions, payload);
+    
+    res.json({ 
+      success: true, 
+      message: `Test notifications sent to ${results.successful} subscribers`,
+      details: results
+    });
+  } catch (error) {
+    console.error('Error sending test notification:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Failed to send test notification' 
+    });
+  }
+});
 
 // Get current mood
 app.get('/api/mood/current', async (req, res) => {
@@ -76,7 +216,7 @@ app.get('/api/mood/current', async (req, res) => {
   }
 });
 
-// Set new mood
+// Set new mood (enhanced with notifications)
 app.post('/api/mood/set', async (req, res) => {
   try {
     const { mood, emoji } = req.body;
@@ -102,6 +242,9 @@ app.post('/api/mood/set', async (req, res) => {
 
     // Emit to all connected clients
     io.emit('mood-updated', moodData);
+
+    // Send push notifications
+    await sendMoodUpdateNotification(moodData);
 
     res.json({ success: true, mood: moodData });
   } catch (error) {
@@ -140,6 +283,95 @@ io.on('connection', (socket) => {
     console.log('User disconnected:', socket.id);
   });
 });
+
+// Push notification functions
+async function sendMoodUpdateNotification(moodData) {
+  try {
+    const subscriptions = await PushSubscription.find();
+    
+    if (subscriptions.length === 0) {
+      console.log('No subscribers for mood update notification');
+      return;
+    }
+
+    const moodMessages = {
+      happy: "Someone's feeling happy! 😊",
+      excited: "Excitement is in the air! 🎉",
+      loved: "Love is all around! 💕",
+      calm: "Peaceful vibes detected 🧘‍♀️",
+      sad: "Sending you virtual hugs 🤗",
+      tired: "Time for some rest? 😴",
+      stressed: "Take a deep breath 🌱",
+      angry: "Let's work through this together 💪",
+      silly: "Someone's being silly! 🤪"
+    };
+
+    const payload = JSON.stringify({
+      title: 'Mood Update',
+      body: moodMessages[moodData.mood] || `Mood updated to ${moodData.mood} ${moodData.emoji}`,
+      icon: '/icon-192x192.png',
+      badge: '/badge-72x72.png',
+      tag: 'mood-update',
+      data: {
+        url: '/',
+        mood: moodData.mood,
+        emoji: moodData.emoji,
+        timestamp: moodData.timestamp
+      },
+      actions: [
+        {
+          action: 'view',
+          title: 'View Details'
+        },
+        {
+          action: 'close',
+          title: 'Close'
+        }
+      ]
+    });
+
+    const results = await sendNotificationToAll(subscriptions, payload);
+    console.log(`Mood update notifications sent to ${results.successful} subscribers`);
+  } catch (error) {
+    console.error('Error sending mood update notification:', error);
+  }
+}
+
+async function sendNotificationToAll(subscriptions, payload) {
+  const results = {
+    successful: 0,
+    failed: 0,
+    errors: []
+  };
+
+  const promises = subscriptions.map(async (subscription) => {
+    try {
+      await webpush.sendNotification(
+        {
+          endpoint: subscription.endpoint,
+          keys: subscription.keys
+        },
+        payload
+      );
+      results.successful++;
+    } catch (error) {
+      results.failed++;
+      results.errors.push({
+        endpoint: subscription.endpoint,
+        error: error.message
+      });
+
+      // Remove invalid subscriptions
+      if (error.statusCode === 410 || error.statusCode === 404) {
+        await PushSubscription.deleteOne({ endpoint: subscription.endpoint });
+        console.log('Removed invalid subscription:', subscription.endpoint);
+      }
+    }
+  });
+
+  await Promise.all(promises);
+  return results;
+}
 
 // Utility function to calculate time ago
 function getTimeAgo(timestamp) {

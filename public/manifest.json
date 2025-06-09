@@ -1,0 +1,108 @@
+{
+    "name": "Mood Tracker",
+    "short_name": "MoodApp",
+    "description": "Track and share your daily moods with real-time updates",
+    "start_url": "/",
+    "display": "standalone",
+    "background_color": "#ffffff",
+    "theme_color": "#4f46e5",
+    "orientation": "portrait-primary",
+    "categories": ["lifestyle", "health", "social"],
+    "lang": "en",
+    "dir": "ltr",
+    "scope": "/",
+    "icons": [
+      {
+        "src": "/icon-72x72.png",
+        "sizes": "72x72",
+        "type": "image/png",
+        "purpose": "any"
+      },
+      {
+        "src": "/icon-96x96.png",
+        "sizes": "96x96",
+        "type": "image/png",
+        "purpose": "any"
+      },
+      {
+        "src": "/icon-128x128.png",
+        "sizes": "128x128",
+        "type": "image/png",
+        "purpose": "any"
+      },
+      {
+        "src": "/icon-144x144.png",
+        "sizes": "144x144",
+        "type": "image/png",
+        "purpose": "any"
+      },
+      {
+        "src": "/icon-152x152.png",
+        "sizes": "152x152",
+        "type": "image/png",
+        "purpose": "any"
+      },
+      {
+        "src": "/icon-192x192.png",
+        "sizes": "192x192",
+        "type": "image/png",
+        "purpose": "any maskable"
+      },
+      {
+        "src": "/icon-384x384.png",
+        "sizes": "384x384",
+        "type": "image/png",
+        "purpose": "any"
+      },
+      {
+        "src": "/icon-512x512.png",
+        "sizes": "512x512",
+        "type": "image/png",
+        "purpose": "any maskable"
+      }
+    ],
+    "shortcuts": [
+      {
+        "name": "Quick Mood Update",
+        "short_name": "Update Mood",
+        "description": "Quickly update your current mood",
+        "url": "/?action=update-mood",
+        "icons": [
+          {
+            "src": "/icon-96x96.png",
+            "sizes": "96x96",
+            "type": "image/png"
+          }
+        ]
+      },
+      {
+        "name": "View History",
+        "short_name": "History",
+        "description": "View your mood history",
+        "url": "/?action=view-history",
+        "icons": [
+          {
+            "src": "/icon-96x96.png",
+            "sizes": "96x96",
+            "type": "image/png"
+          }
+        ]
+      }
+    ],
+    "screenshots": [
+      {
+        "src": "/screenshot-wide.png",
+        "sizes": "1024x768",
+        "type": "image/png",
+        "form_factor": "wide",
+        "label": "Mood Tracker main interface on desktop"
+      },
+      {
+        "src": "/screenshot-narrow.png",
+        "sizes": "390x844",
+        "type": "image/png",
+        "form_factor": "narrow",
+        "label": "Mood Tracker main interface on mobile"
+      }
+    ]
+  }

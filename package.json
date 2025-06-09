@@ -1,5 +1,5 @@
 {
-  "name": "mood-app-push-notifications",
+  "name": "mood-sharing-app",
   "version": "1.0.0",
   "description": "A real-time mood tracking app with push notifications",
   "main": "server.js",
